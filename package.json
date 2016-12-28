@@ -1,0 +1,26 @@
+{
+  "name": "blog",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {
+    "docsify-cli": "^1.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/libraxss/blog.git"
+  },
+  "author": "libraxss",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/libraxss/blog/issues"
+  },
+  "homepage": "https://github.com/libraxss/blog#readme"
+}
