@@ -94,7 +94,7 @@ type whose sole value is the null value
 
 [ecma-262 7.0](http://www.ecma-international.org/ecma-262/6.0/#sec-null-value)
 
-而undefiled的定义也不复杂：
+而undefined的定义也不复杂：
 
 >4.3.10 undefined value
 <br/>
@@ -199,24 +199,186 @@ A: 这是个比较经典的问题了，几乎所有人在初次接触js都会遇
 
 - 这是一个bug
 
-个人更倾向于后者，其实，在ECMA的修订过程中，曾有一版是将输出的值改为"null",但之后为了兼容性，又改回来了(具体待查)....
+个人更倾向于后者，其实，在ECMA的修订过程中，曾经有提案建议将输出的值改为"null",但为了兼容性，没有这么改([harmony](http://wiki.ecmascript.org/doku.php?id=harmony%3Atypeof_null))....
 
 
 ### 2. null + 1 = 1? ###
 A: 这又是个比较神奇的地方了，如果换成undefined,你又会发现：
 
     console.log(null + 1);//输出1
-    console.log(undefined + 1);//报错
+    console.log(undefined + 1);//输出NaN
+这又是为什么捏？？
+很简单，在做"+"运算时，对原始类型，会通过ToNumber()[注：底层方法]进行转换，如果遇到无法转换的情况，则会输出NaN(Not a Number)<br/>
+让我们用js的Number()来模拟下：
+
+    console.log(Number(null));//输出0
+    console.log(Number(undefined));//输出NaN
+
+附上"+"运算符执行加运算的定义：
+</br>
+</br>
+
+> AdditiveExpression : AdditiveExpression + MultiplicativeExpression<br/>
+Let lref be the result of evaluating AdditiveExpression.</br>
+估算左边引用式
+</br>
+</br>
+Let lval be GetValue(lref).</br>
+通过GetValue()获取左边引用式的值
+</br>
+</br>
+ReturnIfAbrupt(lval).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Let rref be the result of evaluating MultiplicativeExpression.</br>
+估算右边引用式
+</br>
+</br>
+Let rval be GetValue(rref).</br>
+通过GetValue()获取右边引用式的值
+</br>
+</br>
+ReturnIfAbrupt(rval).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Let lprim be ToPrimitive(lval).</br>
+通过ToPrimitive()方法把左边的值转换为原始类型
+</br>
+</br>
+ReturnIfAbrupt(lprim).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Let rprim be ToPrimitive(rval).</br>
+通过ToPrimitive()方法把右边的值转换为原始类型
+</br>
+</br>
+ReturnIfAbrupt(rprim).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+If Type(lprim) is String or Type(rprim) is String, then
+Let lstr be ToString(lprim).</br>
+如果左边/右边的值转换为原始类型后，任一类型是String，则把左边的值通过ToString()方法转换为String
+</br>
+</br>
+ReturnIfAbrupt(lstr).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Let rstr be ToString(rprim).</br>
+同时将右边的值也通过ToString()方法转换为String
+</br>
+</br>
+ReturnIfAbrupt(rstr).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Return the String that is the result of concatenating lstr and rstr.</br>
+如果上述操作没挂掉的话，就把两边的值(已经都转换为String了)拼接起来
+</br>
+</br>
+Let lnum be ToNumber(lprim).</br>
+如果左边/右边的值转换为原始类型后，任一类型都不是String，则把左边的值通过ToNumber()方法转换为Number
+</br>
+</br>
+ReturnIfAbrupt(lnum).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Let rnum be ToNumber(rprim).</br>
+同时将右边的值也通过ToNumber()方法转换为Number
+<br/>
+</br>
+ReturnIfAbrupt(rnum).</br>
+执行ReturnIfAbrupt()检测是否有异常情况发生
+</br>
+</br>
+Return the result of applying the addition operation to lnum and rnum. See the Note below 12.7.5.</br>
+如果上述操作没挂掉的话，就把两边的值(已经都转换为Number了)通过加法运算加起来
+</br>
+
+### 3. undefined/undeclared? ###
+我们通常会遇到需要判断某变量是否已经被声明/赋值的情况，例如
+
+    var defined_val = "yeah";
+    if (defined_val) {
+        console.log(defined_val);
+    }
+
+但很多时候，我们并不清楚该变量是否已经被声明过，而直接操作未声明但变量是会挂掉的
+
+    if (abc) {//直接报错Uncaught ReferenceError: abc is not defined
+        console.log(abc);
+    }
+
+那我们通常会这么判断：
+
+    if (typeof abc == "undefined") {
+        console.log("undefined!!");
+    } else {
+        console.log(abc);
+    }//输出"undefined!!"
+
+然而，我们还是没判断出该变量是否已经被声明了，因为：
+
+    var abc;
+    if (typeof abc == "undefined") {
+        console.log("undefined!!");
+    } else {
+        console.log(abc);
+    }//输出"undefined!!"
 
 
+其实，当操作未声明变量，报错的log是很迷惑人的，<br/>
+如果报错是Uncaught ReferenceError: abc is not declared或许就更清晰了<br/>
+那怎么解决呢？个人是参照Java，对声明的变量都赋值null,如这样：
+
+    var abc = null;
+    if (typeof abc == "null") {
+        console("abc is declared but not defined");
+    } else if (typeof cba == "undefined") {
+        console("cba is not declared");
+    }
+
+完成
 
 
+### 历史原因 ###
+为什么会有null与undefined两个表示空的情况呢，其实这是有历史原因的，按照[Speaking JavaScript](http://speakingjs.com/es5/ch08.html#_occurrences_of_undefined_and_null)的说法：
+
+>The History of undefined and null
+A single nonvalue could play the roles of both undefined and null. Why does JavaScript have two such values? The reason is historical.
+JavaScript adopted Java’s approach of partitioning values into primitives and objects. It also used Java’s value for “not an object,” null. Following the precedent set by C (but not Java), null becomes 0 if coerced to a number:
+> Number(null)
+0
+> 5 + null
+5
+Remember that the first version of JavaScript did not have exception handling. Therefore, exceptional cases such as uninitialized variables and missing properties had to be indicated via a value. null would have been a good choice, but Brendan Eich wanted to avoid two things at the time:
+The value shouldn’t have the connotation of a reference, because it was about more than just objects.
+The value shouldn’t coerce to 0, because that makes errors harder to spot.
+As a result, Eich added undefined as an additional nonvalue to the language. It coerces to NaN:
+> Number(undefined)
+NaN
+> 5 + undefined
+NaN
+Changing undefined
+undefined is a property of the global object (and thus a global variable; see The Global Object). Under ECMAScript 3, you had to take precautions when reading undefined, because it was easy to accidentally change its value. Under ECMAScript 5, that is not necessary, because undefined is read-only.
+To protect against a changed undefined, two techniques were popular (they are still relevant for older JavaScript engines):
+Technique 1
+Shadow the global undefined (which may have the wrong value):
+(function (undefined) {
+    if (x === undefined) ...  // safe now
+}());  // don’t hand in a parameter
+In the preceding code, undefined is guaranteed to have the right value, because it is a parameter whose value has not been provided by the function call.
+Technique 2
+Compare with void 0, which is always (the correct) undefined (see The void Operator):
+if (x === void 0)  // always safe
 
 
-
-
-
-
-
-
-</end>
+简单的说,按照我们的js之父Brendan Eich的想法，
+- null一般会被当作对象看待，但最好null并不被当作是一个对象，而是一个值
+- 在js各种神奇的类型转换下，null可能会被转换为0(当然其他语言也会有这种转换，例如C语言),这样很容易出错
+所以，又设计了undefined.......
