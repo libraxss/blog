@@ -6,7 +6,7 @@
 -------
 
 ### js从挖坑到埋坑系列 ###
-[万物始于无 ECMAScript的Null类型介绍](/js-null)
+[万物始于无 ECMAScript的Null类型介绍](https://libraxss.github.io/blog/#/js-null)
 
 
 ### 还没开始写系列 ###
