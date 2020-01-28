@@ -8,7 +8,7 @@
 
 最近闲来无事，那就从头来读一读axios的源码
 
-至于为什么要读axios，主要是因为其他知名库比如vue/react的源码太长，而且解读的人太多，另外平时工作中，网络请求一般都是自己封装一个简单XMLHttpRequest，所以想看看这个牛逼哄哄的axios为什么这么dio
+至于为什么要读axios，主要是因为其他知名库比如vue/react的源码太长，而且解读的人太多(诶，好像解读axios的人也不少啊)，另外平时工作中，网络请求一般都是自己封装一个简单XMLHttpRequest，所以想看看这个牛逼哄哄的axios为什么这么dio
 
 ---
 
@@ -32,13 +32,15 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
 
 下好源码，先看什么？readme？？No，都说了一些库连&#8482; readme都不写(比如在下)，所以当然必须先看工程户口本package.json
 
+```json
     "name": "axios",
     "version": "0.19.0",
     "description": "Promise based HTTP client for the browser and node.js",
     "main": "index.js",
-
+```
 看源码，其实主要找到main这行就行了，不过也可以顺便看看还有哪些
 
+```json
     "scripts": {
         "test": "grunt test && bundlesize",
         "start": "node ./sandbox/server.js",
@@ -50,9 +52,11 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
         "coveralls": "cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
         "fix": "eslint --fix lib/**/*.js"
     },
+```
 
 不愧是知名库，脚本这叫一个全，讲究
 
+```json
     "devDependencies": {
         "bundlesize": "^0.17.0",
         ...... x 12
@@ -62,22 +66,27 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
         "follow-redirects": "1.5.10",
         "is-buffer": "^2.0.2"
     }
+```
 
 我擦，这么多依赖，不愧是知名库，讲究
 
 顺便一提devDependencies和dependencies的区别，顾名思义，
 
-> devDependencies是在开发中用到的，可能是一些单元测试或者代码检查工具之类的  
-> dependencies是发布时用到的，包含所有发布时会用到的依赖
+```text
+devDependencies是在开发中用到的，可能是一些单元测试或者代码检查工具之类的  
+dependencies是发布时用到的，包含所有发布时会用到的依赖
+```
 
 简单的说就是发布时用不到的全部扔到devDependencies里，来来来，大家可以立刻检查检查自己之前写的工程是不是直接npm install --save安装依赖，然后dependencies里一坨(笔者就是...)
 
+```json
     "bundlesize": [
         {
         "path": "./dist/axios.min.js",
         "threshold": "5kB"
         }
     ]
+```
 
 额...bundlesize是啥属性？[Npm doc](https://docs.npmjs.com/files/package.json#browser)里没查到，网上搜了下，原来是个插件，主要用来指定具体文件的大小上限，一旦超过就会向你报警，不愧是知名库啊，真讲究
 
@@ -85,11 +94,14 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
 
 好，让我们进入主题吧，既然main指向了/index.js，那我们直接看下index.js写了啥
 
+```javascript
     // index.js
     module.exports = require('./lib/axios');
+```
 
 就一行，入口嘛，正常操作，那我们就顺着脉络看看./lib/axios.js
 
+```javascript
     // Create the default instance to be exported
     var axios = createInstance(defaults);
 
@@ -97,10 +109,47 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
 
     // Allow use of default import syntax in TypeScript
     module.exports.default = axios;
+```
 
-js模块，当然先从export部分来看，export的axios是一个由createInstance方法创建的对象，嗯，从创建方法的名字来看这就是个单例对象[狗头]
+js模块，当然先从export部分来看，export的axios是一个由createInstance方法创建的对象，
+
+
+我们先跳过这块，看看axios还申明了什么属性
+
+```javascript
+
+    // Expose Axios class to allow class inheritance
+    axios.Axios = Axios;
+
+    // Factory for creating new instances
+    axios.create = function create(instanceConfig) {
+        return createInstance(mergeConfig(axios.defaults, instanceConfig));
+    };
+
+    // Expose Cancel & CancelToken
+    axios.Cancel = require('./cancel/Cancel');
+    axios.CancelToken = require('./cancel/CancelToken');
+    axios.isCancel = require('./cancel/isCancel');
+
+    // Expose all/spread
+    axios.all = function all(promises) {
+        return Promise.all(promises);
+    };
+    axios.spread = require('./helpers/spread');
+```
+
+- 先expose出Axios类，方便继承?
+- 申明create方法以暴露出createInstance方法
+- 暴露出Cancel, CancelToken, isCancel
+    这个三个什么玩意?
+
+    
+
+
 
 那createInstance干了些啥呢？
+
+```javascript
 
     /** 
     * Create an instance of Axios
@@ -120,6 +169,7 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
         return instance;
     }
+```
 
 1. 先通过构造方法Axios创建context
 2. 再通过bind.js中的bind方法，将Axios原型方法request映射到instance对象，即可以直接通过Axios()的方式调用，这段有点绕，之后会详细说说
@@ -127,11 +177,13 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 4. 调用utils.js中的extends方法，将context的各个属性复制到instance对象
 5. return instance对象
 
-这个单例构造方法虽然只有短短的五句话，但是&#8482;的非常的绕，看的时候都有点晕，接下来我们慢慢的来阅读
+这个构造方法虽然只有短短的五句话，但是&#8482;的非常的绕，看的时候都有点晕，接下来我们慢慢的来阅读
 
 ### Axios.js
 
 首先是Axios.js，这个文件无论从文件名字还是文件位置(core/Axios.js)，都毫无疑问的是整个库的核心部分了，先看这段
+
+```javascript
 
     /**
     * Create a new instance of Axios
@@ -145,6 +197,7 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
             response: new InterceptorManager()
         };
     }
+```
 
 这是个es5的类的构造方法，class写多了看到这段还真有点怀念，不得不说**es6大法好**
 
@@ -159,11 +212,16 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 先看构造方法
 
+```javascript
+
     function InterceptorManager() {
         this.handlers = [];
     }
+```
 
 就定义了一个handlers数组，接着往下看
+
+```javascript
 
     /**
     * Add a new interceptor to the stack
@@ -181,12 +239,15 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
         });
         return this.handlers.length - 1;
     };
+```
 
 在InterceptorManager的原型上声明了一个use方法，先不看注释不看内容，光看这两个参数fulfilled和rejected，眼熟不？这不就是promise吗？莫非又是自己实现了一个promise？额...我为什么要说又.....
 
 注释说的清楚明白，use方法就是将一个中间件push到handlers数组中，传入中间件的fulfilled用来then的，rejected用来catch(reject)，然后返回这个中间件的id(其实就是它的index)
 
 接着看
+
+```javascript
 
     /**
     * Remove an interceptor from the stack
@@ -198,10 +259,13 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
             this.handlers[id] = null;
         }
     };
+```
 
-这个reject很简单，就是根据id将handlers中的中间件置空，但是搜索了下，没有找到调用点，这个之后看实际调用的时候再看
+这个eject很简单，就是根据id将handlers中的中间件置空，但是搜索了下，没有找到调用点，这个之后看实际调用的时候再看
 
 接着看
+
+```javascript
 
     /**
     * Iterate over all the registered interceptors
@@ -218,12 +282,15 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
             }
         });
     };
+```
 
 这个forEach看上去挺简单的，其实不然，不信？让我们层层抽丝剥茧的来看
 
 1. 首先，它接收的参数是一个方法fn，头等公民嘛，你懂的；
 
 2. 然后，他调用了utils中的forEach方法，这个utils是一个工具集合，里边集成了几乎所有axios库用到的工具，让我们看看有多少：
+
+```javascript
 
         module.exports = {
             isArray: isArray,
@@ -248,6 +315,7 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
             extend: extend,
             trim: trim
         };
+```
 
     简直就是百宝箱有木有，重新定义了js有木有，真心讲究有木有
 
@@ -256,6 +324,8 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 utils.js中的各个方法会在之后用到它们的地方再聊，这里先看看utils里的forEach到底干了什么
 
 ##### utils.js@forEach
+
+```javascript
 
     /**
     * Iterate over an Array or an Object invoking a function for each item.
@@ -296,6 +366,7 @@ utils.js中的各个方法会在之后用到它们的地方再聊，这里先看
             }
         }
     }
+```
 
 utils的forEach接收两个参数，
 
@@ -306,15 +377,20 @@ utils的forEach接收两个参数，
 
 然后判断如果obj不是对象，则强制转换为数组...方便迭代
 
+```javascript
+
     // Force an array if not already something iterable
     if (typeof obj !== 'object') {
         /*eslint no-param-reassign:0*/
         obj = [obj];
     }
+```
 
 obj = [obj]; 对，就是这么暴力，暴力到要加eslint注释来防止警告，顺便一提，no-param-reassign是禁止对函数参数再赋值
 
 接下来遍历数组/对象属性
+
+```javascript
 
     if (isArray(obj)) {
         // Iterate over array values
@@ -329,12 +405,16 @@ obj = [obj]; 对，就是这么暴力，暴力到要加eslint注释来防止警�
             }
         }
     }
+```
 
 先调用isArray判断是否是数组，这个isArray方法是怎么判断的？
+
+```javascript
 
     function isArray(val) {
         return toString.call(val) === '[object Array]';
     }
+```
 
 toString就是Object原型上的toString方法，
 
@@ -347,18 +427,22 @@ toString就是Object原型上的toString方法，
 - 如果obj是数组，那么就遍历该数组，然后依次通过回调方法调用数组的内容，传递的参数依次是值，下标和数组本身
 - 如果obj是对象，则遍历该对象的自身属性，并通过回调方法调用该属性，传递的参数依次是值，属性名称和obj对象本身
 
+```javascript
+
         for (var key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 fn.call(null, obj[key], key, obj);
             }
         }
+```
 
-    这里要注意下for in和hasOwnProperty，for in是es6之前的遍历对象属性的方法，循环只遍历可枚举属性，遍历的是对象的属性名，一般都和hasOwnProperty配合使用，以枚举自身的属性而不包含继承的属性，当然es6之后一般都使用for of或者Object.keys()/Object.values()，**es6大法好**
+这里要注意下for in和hasOwnProperty，for in是es6之前的遍历对象属性的方法，循环只遍历可枚举属性，遍历的是对象的属性名，一般都和hasOwnProperty配合使用，以枚举自身的属性而不包含继承的属性，当然es6之后一般都使用for of或者Object.keys()/Object.values()，**es6大法好**
 
-总之，utils的forEach就做一件事情，遍历obj参数的值，并通过回调调用遍历的值
+**总之，utils.forEach就做一件事情，遍历传入的obj参数的值，并通过传入的回调方法fn处理遍历的值，与es6的Array.forEach类似，而且同时还能处理object的属性，这个方法挺重要，你将会在整个axios库里一直见到它**
 
 然后回到InterceptorManager，我们继续看InterceptorManager中的forEach
 
+```javascript
     InterceptorManager.prototype.forEach = function forEach(fn) {
         utils.forEach(this.handlers, function forEachHandler(h) {
             if (h !== null) {
@@ -366,12 +450,15 @@ toString就是Object原型上的toString方法，
             }
         });
     };
+```
 
 调用utils.forEach，传递的参数是InterceptorManager的handlers数组，回调方法forEachHandler则在utils.forEach遍历并回调时，先判断h(obj)是否为空，不为空的话则执行fn方法，参数即遍历的值
 
 这tm回调回调再回调的过程，很晕，只能在实际调用的时候再解析了，现在先大致了解整个流程
 
 好，现在可以回到Axios.js了(一种递归要完成的感觉)，先看两段forEach
+
+```javascript
 
     // Provide aliases for supported request methods
     utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {
@@ -383,6 +470,7 @@ toString就是Object原型上的toString方法，
             }));
         };
     });
+```
 
 这段里的['delete', 'get', 'head', 'options']很清楚，就是一些http的[request method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)，从forEachMethodNoData来看，这些应该都是不带data的method，而这段代码是什么意思呢？那就顺便让我们来走一遍utils.forEach的流程吧
 
@@ -394,12 +482,16 @@ toString就是Object原型上的toString方法，
     2. 判断obj是否为object，这里obj不是对象
     3. 判断obj是否为数组，obj是数组，则进行数组遍历
 
-            for (var i = 0, l = obj.length; i < l; i++) {
-                fn.call(null, obj[i], i, obj);
-            }
+    ```javascript
+        for (var i = 0, l = obj.length; i < l; i++) {
+            fn.call(null, obj[i], i, obj);
+        }
+    ```
 
     4. 遍历数组，数组第一个值为'delete'，调用fn即forEachMethodNoData，传入参数'delete', 0, ['delete', 'get', 'head', 'options']
     5. 执行forEachMethodNoData
+
+    ```javascript
 
             function forEachMethodNoData(method) {
                 /*eslint func-names:0*/
@@ -410,13 +502,15 @@ toString就是Object原型上的toString方法，
                     }));
                 };
             });
+    ```
     6. 因为回调方法只接收一个参数method，则method的值为'delete'
     7. 执行语句Axios.prototype[method] = function(url, config){..}，即Axios.prototype['delete'] = function(url, config){...}
     8. 继续遍历，调用fn，传入参数'get', 1, ['delete', 'get', 'head', 'options']
-    9.如此反复直到遍历结束
+    9. 如此反复直到遍历结束
 
 可见，这步就是将这些method声明成Axios原型上的方法，即可以直接通过Axios实例axios.get(), axios.delete()的方式发起请求
 
+```javascript
     utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
         /*eslint func-names:0*/
         Axios.prototype[method] = function(url, data, config) {
@@ -427,39 +521,52 @@ toString就是Object原型上的toString方法，
             }));
         };
     });
+```
 
 这段里的['post', 'put', 'patch']也是一些http的[request method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)，不需要从forEachMethodWithData来看，直接看post，put，你就知道这些应该都是带data的method，处理同上，将这些method声明成Axios原型上的方法，顺便提一下patch，这个不常用，在HTTP协议中，请求方法 [PATCH](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/PATCH)  用于对资源进行部分修改。然后需要注意的是这个method是非幂等的。
 
 再顺便一提http的method有哪些：
 
-    GET
-    The GET method requests a representation of the specified resource. Requests using GET should only retrieve data.
+```text
 
-    HEAD
-    The HEAD method asks for a response identical to that of a GET request, but without the response body.
+GET
 
-    POST
-    The POST method is used to submit an entity to the specified resource, often causing a change in state or side effects on the server.
+The GET method requests a representation of the specified resource. Requests using GET should only retrieve data.
 
-    PUT
-    The PUT method replaces all current representations of the target resource with the request payload.
+HEAD
 
-    DELETE
-    The DELETE method deletes the specified resource.
+The HEAD method asks for a response identical to that of a GET request, but without the response body.
 
-    CONNECT
-    The CONNECT method establishes a tunnel to the server identified by the target resource.
+POST
 
-    OPTIONS
-    The OPTIONS method is used to describe the communication options for the target resource.
+The POST method is used to submit an entity to the specified resource, often causing a change in state or side effects on the server.
 
-    TRACE
-    The TRACE method performs a message loop-back test along the path to the target resource.
+PUT
 
-    PATCH
-    The PATCH method is used to apply partial modifications to a resource.
+The PUT method replaces all current representations of the target resource with the request payload.
 
-如果面试时面试官问你这个，你就说一些基本的就行，比如get,post,put,delete,options这几个，然后注意下哪些是幂等(no side effect)，哪些非幂等(side effect)，比如get,put,delete,options都是幂等的，post是非幂等的，其实这些method里只有post和patch都是非幂等的......额，如果都看到这里你还是不知道[幂等](https://developer.mozilla.org/zh-CN/docs/Glossary/%E5%B9%82%E7%AD%89)的意思并且没有上网查....你可以的，
+DELETE
+
+The DELETE method deletes the specified resource.
+
+CONNECT
+
+The CONNECT method establishes a tunnel to the server identified by the target resource.
+
+OPTIONS
+
+The OPTIONS method is used to describe the communication options for the target resource.
+
+TRACE
+
+The TRACE method performs a message loop-back test along the path to the target resource.
+
+PATCH
+
+The PATCH method is used to apply partial modifications to a resource.
+```
+
+如果面试时面试官问你这个，你就说一些基本的就行，比如get,post,put,delete,options这几个，然后注意下哪些是幂等(no side effect)，哪些非幂等(side effect)，比如get,put,delete,options都是幂等的，post是非幂等的，其实这些method里只有post和patch是非幂等的......额，如果都看到这里你还是不知道[幂等](https://developer.mozilla.org/zh-CN/docs/Glossary/%E5%B9%82%E7%AD%89)的意思并且没有上网查....你可以的，
 
 - 幂等 请求之后不会改变服务器的值，请求被执行一次与连续执行多次的效果是一样的
     > 比如get请求获取你的昵称，你的昵称并不会因为你get而改变，你get多次都不会改变你的昵称  
@@ -469,8 +576,9 @@ toString就是Object原型上的toString方法，
     > 比如post请求更新你的昵称，你post提交新的昵称后，你的昵称就会因为你的post而改变，你post多次，会多次改变昵称  
     > 同样的，如果你post之后你的昵称没变，那说明你请求的这个服务器可能已经挂了....赶紧联系网站管理员吧
 
-然后让我们回到Axios.js(又扯远了...)，通过两段forEach，Axios的原型上已经有了一堆方法了，然而这些method对应的方法，都会调用到this.request，另一个声明在Axios原型上的方法
+然后让我们回到Axios.js(又扯远了...)，通过两段forEach，Axios的原型上已经有了一堆方法了，然而这些method对应的方法，最终都会调用到this.request，另一个声明在Axios原型上的方法
 
+```javascript
     /**
     * Dispatch a request
     *
@@ -515,4 +623,246 @@ toString就是Object原型上的toString方法，
 
         return promise;
     };
+```
 
+这块代码涉极到的部分特别多，看的时候真是头大，没办法，抽丝剥茧的康康
+
+首先接受的参数是config，这个config是整个请求发送的重要参数，而且它灵活多变，可以是各种类型(伟大的js)，所以处理起来也是各种情况都要考虑
+
+1. 判断config是否是string，因为config允许以axios('example/url'[, config])的方式调用，即可以只是url，也可以是带参数的
+2. 如果是string，那么将config.url赋值为第一个调用参数(arguments[0])，即例子中的'example/url'，同时将config赋值为第二个调用参数(arguments[1])，如果没第二个调用参数，则赋值为新对象{}；
+
+    注意这两个语句的顺序，先尝试构建config对象，再将config.url赋值为第一个调用参数
+3. 如果config不是string，那么就尝试构建config对象，config = config || {}; 标准的js对象初始化语句
+4. 经过初始处理过的config，要再经过一次mergeConfig操作，WTF，先康康mergeConfig是什么操作
+
+    ##### /lib/core/mergeConfig.js
+
+    ```javascript
+
+            /**
+            * Config-specific merge-function which creates a new config-object
+            * by merging two configuration objects together.
+            *
+            * @param {Object} config1
+            * @param {Object} config2
+            * @returns {Object} New object resulting from merging config2 to config1
+            */
+            module.exports = function mergeConfig(config1, config2) {
+                // eslint-disable-next-line no-param-reassign
+                config2 = config2 || {};
+                var config = {};
+
+                var valueFromConfig2Keys = ['url', 'method', 'params', 'data'];
+                var mergeDeepPropertiesKeys = ['headers', 'auth', 'proxy'];
+                var defaultToConfig2Keys = [
+                    'baseURL', 'url', 'transformRequest', 'transformResponse', 'paramsSerializer',
+                    'timeout', 'withCredentials', 'adapter', 'responseType', 'xsrfCookieName',
+                    'xsrfHeaderName', 'onUploadProgress', 'onDownloadProgress',
+                    'maxContentLength', 'validateStatus', 'maxRedirects', 'httpAgent',
+                    'httpsAgent', 'cancelToken', 'socketPath'
+                ];
+
+                utils.forEach(valueFromConfig2Keys, function valueFromConfig2(prop) {
+                    if (typeof config2[prop] !== 'undefined') {
+                        config[prop] = config2[prop];
+                    }
+                });
+
+                utils.forEach(mergeDeepPropertiesKeys, function mergeDeepProperties(prop) {
+                    if (utils.isObject(config2[prop])) {
+                        config[prop] = utils.deepMerge(config1[prop], config2[prop]);
+                    } else if (typeof config2[prop] !== 'undefined') {
+                        config[prop] = config2[prop];
+                    } else if (utils.isObject(config1[prop])) {
+                        config[prop] = utils.deepMerge(config1[prop]);
+                    } else if (typeof config1[prop] !== 'undefined') {
+                        config[prop] = config1[prop];
+                    }
+                });
+
+                utils.forEach(defaultToConfig2Keys, function defaultToConfig2(prop) {
+                    if (typeof config2[prop] !== 'undefined') {
+                        config[prop] = config2[prop];
+                    } else if (typeof config1[prop] !== 'undefined') {
+                        config[prop] = config1[prop];
+                    }
+                });
+
+                var axiosKeys = valueFromConfig2Keys
+                    .concat(mergeDeepPropertiesKeys)
+                    .concat(defaultToConfig2Keys);
+
+                var otherKeys = Object
+                    .keys(config2)
+                    .filter(function filterAxiosKeys(key) {
+                        return axiosKeys.indexOf(key) === -1;
+                    });
+
+                utils.forEach(otherKeys, function otherKeysDefaultToConfig2(prop) {
+                    if (typeof config2[prop] !== 'undefined') {
+                        config[prop] = config2[prop];
+                    } else if (typeof config1[prop] !== 'undefined') {
+                        config[prop] = config1[prop];
+                    }
+                });
+
+                return config;
+            };
+    ```
+    我***[脏话]，太长，不看....
+
+    好吧，我开玩笑的，这里总结下，调用mergeConfig，
+    - 会先遍历http请求可能涉及到的参数名
+    - 尝试以这些参数名为基础合并传入的config1和config2参数
+    - 如果config1和config2同时包含的参数，则优先使用config2的值
+    - 当config2存在其他的参数名时，也同样会进行赋值，赋值规则同上，优先使用config2的值
+
+    我这边举个例子：
+    
+    ```javascript
+        config1: {
+            url: "aaa/aaa",
+            method: "get",
+            others1: {}
+        }
+
+        config2: {
+            url: "bbb/bbb",
+            method: "post",
+            data: {},
+            others2: { value: "others" },
+        }
+    ```
+    合并后：
+
+    ```javascript
+        config: {
+            url: "bbb/bbb",
+            method: "post",
+            data: {},
+            others1: {},
+            others2: { value: "others" }
+        }
+    ```
+
+    好，继续让我们回到Axios.prototype.request....
+
+5. 得到merge之后的config后，设置config.method
+    - 如果config带有method参数，转成小写后直接用
+    - 如果没有，则使用this.defaults.method
+    - 如果defaults里也没method，那么直接用'get'
+6. 接下来是重头戏了，处理中间件
+    - 首先定义 chain数组, 默认有两个值, dispatchRequest和undefined....  
+        undefined先不管，我们先看看dispatchRequest
+        
+        dispatchRequest.js
+        
+        ```javascript
+
+            /**
+            * Dispatch a request to the server using the configured adapter.
+            *
+            * @param {object} config The config that is to be used for the request
+            * @returns {Promise} The Promise to be fulfilled
+            */
+            module.exports = function dispatchRequest(config) {
+                throwIfCancellationRequested(config);
+
+                // Ensure headers exist
+                config.headers = config.headers || {};
+
+                // Transform request data
+                config.data = transformData(
+                    config.data,
+                    config.headers,
+                    config.transformRequest
+                );
+
+                // Flatten headers
+                config.headers = utils.merge(
+                    config.headers.common || {},
+                    config.headers[config.method] || {},
+                    config.headers || {}
+                );
+
+                utils.forEach(
+                    ['delete', 'get', 'head', 'post', 'put', 'patch', 'common'],
+                    function cleanHeaderConfig(method) {
+                        delete config.headers[method];
+                    }
+                );
+
+                var adapter = config.adapter || defaults.adapter;
+
+                return adapter(config).then(function onAdapterResolution(response) {
+                    throwIfCancellationRequested(config);
+
+                    // Transform response data
+                    response.data = transformData(
+                        response.data,
+                        response.headers,
+                        config.transformResponse
+                    );
+
+                    return response;
+                }, function onAdapterRejection(reason) {
+                    if (!isCancel(reason)) {
+                        throwIfCancellationRequested(config);
+
+                        // Transform response data
+                        if (reason && reason.response) {
+                            reason.response.data = transformData(
+                            reason.response.data,
+                            reason.response.headers,
+                            config.transformResponse
+                            );
+                        }
+                    }
+
+                    return Promise.reject(reason);
+                });
+            };
+        ```
+
+        我靠...又那么长....不过这个比较重要，我们一句句看
+        dispatchRequest接受参数config，就是之前经过了重重处理的config，
+
+        先调用throwIfCancellationRequested
+
+        ```javascript
+            /**
+            * Throws a `Cancel` if cancellation has been requested.
+            */
+            function throwIfCancellationRequested(config) {
+                if (config.cancelToken) {
+                    config.cancelToken.throwIfRequested();
+                }
+            }
+        ```
+
+        简单的说就是如果config带有cancelToken，就调用cancelToken的throwIfRequested方法取消发送过的请求
+
+        接下来，处理相对路径的url，如果config.url是绝对路径，则直接使用，反之若存在baseURL且config.url不是绝对路径，则将两个url进行合并操作
+
+        ```javascript
+        // Support baseURL config
+        if (config.baseURL && !isAbsoluteURL(config.url)) {
+            config.url = combineURLs(config.baseURL, config.url);
+        }
+        ```
+        其中isAbsoluteURL是用来判断是否是绝对路径，如果是以```<scheme>//```或者```//```开头的，则是绝对路径，反之则是不是，判断是用了如下正则表达式
+        ```javascript
+        /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url)
+        ```
+
+        combineURLs的操作方式则是去掉baseURL的最后的```/```，去掉relativeURL的第一个```/```，然后用```/``` 将两个字符串合并起来，orz
+
+        接着处理header
+        ```javascript
+        // Ensure headers exist
+        config.headers = config.headers || {};
+        ```
+        标准的js处理方式，如果没有定义header，则声明header为一个空对象
+
+        
