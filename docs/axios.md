@@ -33,25 +33,26 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
 下好源码，先看什么？readme？？No，都说了一些库连&#8482; readme都不写(比如在下)，所以当然必须先看工程户口本package.json
 
 ```json
-    "name": "axios",
-    "version": "0.19.0",
-    "description": "Promise based HTTP client for the browser and node.js",
-    "main": "index.js",
+"name": "axios",
+"version": "0.19.0",
+"description": "Promise based HTTP client for the browser and node.js",
+"main": "index.js",
 ```
+
 看源码，其实主要找到main这行就行了，不过也可以顺便看看还有哪些
 
 ```json
-    "scripts": {
-        "test": "grunt test && bundlesize",
-        "start": "node ./sandbox/server.js",
-        "build": "NODE_ENV=production grunt build",
-        "preversion": "npm test",
-        "version": "npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json",
-        "postversion": "git push && git push --tags",
-        "examples": "node ./examples/server.js",
-        "coveralls": "cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-        "fix": "eslint --fix lib/**/*.js"
-    },
+"scripts": {
+    "test": "grunt test && bundlesize",
+    "start": "node ./sandbox/server.js",
+    "build": "NODE_ENV=production grunt build",
+    "preversion": "npm test",
+    "version": "npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json",
+    "postversion": "git push && git push --tags",
+    "examples": "node ./examples/server.js",
+    "coveralls": "cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+    "fix": "eslint --fix lib/**/*.js"
+},
 ```
 
 不愧是知名库，脚本这叫一个全，讲究
@@ -66,6 +67,7 @@ axios，是当前非常著名的前端库，主要用于处理封装前端的请
         "follow-redirects": "1.5.10",
         "is-buffer": "^2.0.2"
     }
+    
 ```
 
 我擦，这么多依赖，不愧是知名库，讲究
@@ -80,12 +82,13 @@ dependencies是发布时用到的，包含所有发布时会用到的依赖
 简单的说就是发布时用不到的全部扔到devDependencies里，来来来，大家可以立刻检查检查自己之前写的工程是不是直接npm install --save安装依赖，然后dependencies里一坨(笔者就是...)
 
 ```json
-    "bundlesize": [
-        {
+"bundlesize": [
+    {
         "path": "./dist/axios.min.js",
         "threshold": "5kB"
-        }
-    ]
+    }
+]
+
 ```
 
 额...bundlesize是啥属性？[Npm doc](https://docs.npmjs.com/files/package.json#browser)里没查到，网上搜了下，原来是个插件，主要用来指定具体文件的大小上限，一旦超过就会向你报警，不愧是知名库啊，真讲究
@@ -95,80 +98,48 @@ dependencies是发布时用到的，包含所有发布时会用到的依赖
 好，让我们进入主题吧，既然main指向了/index.js，那我们直接看下index.js写了啥
 
 ```javascript
-    // index.js
-    module.exports = require('./lib/axios');
+// index.js
+module.exports = require('./lib/axios');
 ```
 
 就一行，入口嘛，正常操作，那我们就顺着脉络看看./lib/axios.js
 
 ```javascript
-    // Create the default instance to be exported
-    var axios = createInstance(defaults);
 
-    module.exports = axios;
+// Create the default instance to be exported
+var axios = createInstance(defaults);
 
-    // Allow use of default import syntax in TypeScript
-    module.exports.default = axios;
+module.exports = axios;
+
+// Allow use of default import syntax in TypeScript
+module.exports.default = axios;
+
 ```
-
-js模块，当然先从export部分来看，export的axios是一个由createInstance方法创建的对象，
-
-
-我们先跳过这块，看看axios还申明了什么属性
-
-```javascript
-
-    // Expose Axios class to allow class inheritance
-    axios.Axios = Axios;
-
-    // Factory for creating new instances
-    axios.create = function create(instanceConfig) {
-        return createInstance(mergeConfig(axios.defaults, instanceConfig));
-    };
-
-    // Expose Cancel & CancelToken
-    axios.Cancel = require('./cancel/Cancel');
-    axios.CancelToken = require('./cancel/CancelToken');
-    axios.isCancel = require('./cancel/isCancel');
-
-    // Expose all/spread
-    axios.all = function all(promises) {
-        return Promise.all(promises);
-    };
-    axios.spread = require('./helpers/spread');
-```
-
-- 先expose出Axios类，方便继承?
-- 申明create方法以暴露出createInstance方法
-- 暴露出Cancel, CancelToken, isCancel
-    这个三个什么玩意?
-
-    
-
 
 
 那createInstance干了些啥呢？
 
 ```javascript
 
-    /** 
-    * Create an instance of Axios
-    *
-    * @param {Object} defaultConfig The default config for the instance
-    * @return {Axios} A new instance of Axios
-    */
-    function createInstance(defaultConfig) {
-        var context = new Axios(defaultConfig);
-        var instance = bind(Axios.prototype.request, context);
+/**
+* Create an instance of Axios
+*
+* @param {Object} defaultConfig The default config for the instance
+* @return {Axios} A new instance of Axios
+*/
+function createInstance(defaultConfig) {
+    var context = new Axios(defaultConfig);
+    var instance = bind(Axios.prototype.request, context);
 
-        // Copy axios.prototype to instance
-        utils.extend(instance, Axios.prototype, context);
+    // Copy axios.prototype to instance
+    utils.extend(instance, Axios.prototype, context);
 
-        // Copy context to instance
-        utils.extend(instance, context);
+    // Copy context to instance
+    utils.extend(instance, context);
 
-        return instance;
-    }
+    return instance;
+}
+
 ```
 
 1. 先通过构造方法Axios创建context
@@ -185,18 +156,19 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 ```javascript
 
-    /**
-    * Create a new instance of Axios
-    *
-    * @param {Object} instanceConfig The default config for the instance
-    */
-    function Axios(instanceConfig) {
-        this.defaults = instanceConfig;
-        this.interceptors = {
-            request: new InterceptorManager(),
-            response: new InterceptorManager()
-        };
-    }
+/**
+* Create a new instance of Axios
+*
+* @param {Object} instanceConfig The default config for the instance
+*/
+function Axios(instanceConfig) {
+    this.defaults = instanceConfig;
+    this.interceptors = {
+        request: new InterceptorManager(),
+        response: new InterceptorManager()
+    };
+}
+
 ```
 
 这是个es5的类的构造方法，class写多了看到这段还真有点怀念，不得不说**es6大法好**
@@ -214,31 +186,30 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 ```javascript
 
-    function InterceptorManager() {
-        this.handlers = [];
-    }
+function InterceptorManager() {
+    this.handlers = [];
+}
+
 ```
 
 就定义了一个handlers数组，接着往下看
 
 ```javascript
-
-    /**
-    * Add a new interceptor to the stack
-    *
-    * @param {Function} fulfilled The function to handle `then` for a `Promise`
-    * @param {Function} rejected The function to handle `reject` for a `Promise`
-    *
-    * @return {Number} An ID used to remove interceptor later
-    */
-
-    InterceptorManager.prototype.use = function use(fulfilled, rejected) {
-        this.handlers.push({
-            fulfilled: fulfilled,
-            rejected: rejected
-        });
-        return this.handlers.length - 1;
-    };
+/**
+ * Add a new interceptor to the stack
+ *
+ * @param {Function} fulfilled The function to handle `then` for a `Promise`
+ * @param {Function} rejected The function to handle `reject` for a `Promise`
+ *
+ * @return {Number} An ID used to remove interceptor later
+ */
+InterceptorManager.prototype.use = function use(fulfilled, rejected) {
+  this.handlers.push({
+    fulfilled: fulfilled,
+    rejected: rejected
+  });
+  return this.handlers.length - 1;
+};
 ```
 
 在InterceptorManager的原型上声明了一个use方法，先不看注释不看内容，光看这两个参数fulfilled和rejected，眼熟不？这不就是promise吗？莫非又是自己实现了一个promise？额...我为什么要说又.....
@@ -249,16 +220,17 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 ```javascript
 
-    /**
-    * Remove an interceptor from the stack
-    *
-    * @param {Number} id The ID that was returned by `use`
-    */
-    InterceptorManager.prototype.eject = function eject(id) {
-        if (this.handlers[id]) {
-            this.handlers[id] = null;
-        }
-    };
+/**
+* Remove an interceptor from the stack
+*
+* @param {Number} id The ID that was returned by `use`
+*/
+InterceptorManager.prototype.eject = function eject(id) {
+    if (this.handlers[id]) {
+        this.handlers[id] = null;
+    }
+};
+
 ```
 
 这个eject很简单，就是根据id将handlers中的中间件置空，但是搜索了下，没有找到调用点，这个之后看实际调用的时候再看
@@ -267,21 +239,22 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 ```javascript
 
-    /**
-    * Iterate over all the registered interceptors
-    *
-    * This method is particularly useful for skipping over any
-    * interceptors that may have become `null` calling `eject`.
-    *
-    * @param {Function} fn The function to call for each interceptor
-    */
-    InterceptorManager.prototype.forEach = function forEach(fn) {
-        utils.forEach(this.handlers, function forEachHandler(h) {
-            if (h !== null) {
-                fn(h);
-            }
-        });
-    };
+/**
+* Iterate over all the registered interceptors
+*
+* This method is particularly useful for skipping over any
+* interceptors that may have become `null` calling `eject`.
+*
+* @param {Function} fn The function to call for each interceptor
+*/
+InterceptorManager.prototype.forEach = function forEach(fn) {
+    utils.forEach(this.handlers, function forEachHandler(h) {
+        if (h !== null) {
+            fn(h);
+        }
+    });
+};
+
 ```
 
 这个forEach看上去挺简单的，其实不然，不信？让我们层层抽丝剥茧的来看
@@ -292,32 +265,33 @@ js模块，当然先从export部分来看，export的axios是一个由createInst
 
 ```javascript
 
-        module.exports = {
-            isArray: isArray,
-            isArrayBuffer: isArrayBuffer,
-            isBuffer: isBuffer,
-            isFormData: isFormData,
-            isArrayBufferView: isArrayBufferView,
-            isString: isString,
-            isNumber: isNumber,
-            isObject: isObject,
-            isUndefined: isUndefined,
-            isDate: isDate,
-            isFile: isFile,
-            isBlob: isBlob,
-            isFunction: isFunction,
-            isStream: isStream,
-            isURLSearchParams: isURLSearchParams,
-            isStandardBrowserEnv: isStandardBrowserEnv,
-            forEach: forEach,
-            merge: merge,
-            deepMerge: deepMerge,
-            extend: extend,
-            trim: trim
-        };
+    module.exports = {
+        isArray: isArray,
+        isArrayBuffer: isArrayBuffer,
+        isBuffer: isBuffer,
+        isFormData: isFormData,
+        isArrayBufferView: isArrayBufferView,
+        isString: isString,
+        isNumber: isNumber,
+        isObject: isObject,
+        isUndefined: isUndefined,
+        isDate: isDate,
+        isFile: isFile,
+        isBlob: isBlob,
+        isFunction: isFunction,
+        isStream: isStream,
+        isURLSearchParams: isURLSearchParams,
+        isStandardBrowserEnv: isStandardBrowserEnv,
+        forEach: forEach,
+        merge: merge,
+        deepMerge: deepMerge,
+        extend: extend,
+        trim: trim
+    };
+
 ```
 
-    简直就是百宝箱有木有，重新定义了js有木有，真心讲究有木有
+简直就是百宝箱有木有，重新定义了js有木有，真心讲究有木有
 
 3. 注意，接收的参数fn是在utils的forEach的回调方法里才会用到....md闭包大法好
 
@@ -418,7 +392,9 @@ obj = [obj]; 对，就是这么暴力，暴力到要加eslint注释来防止警�
 
 toString就是Object原型上的toString方法，
 
+```javascript
     var toString = Object.prototype.toString;
+```
 
 如果是Array，那调用Object的toString应该会打印出'[object Array]'，这样判断是否是数组真的是js的特色了，PS：es6可以用Array.isArray来判断是否是数组，哎，**es6大法好**
 
@@ -436,9 +412,11 @@ toString就是Object原型上的toString方法，
         }
 ```
 
-这里要注意下for in和hasOwnProperty，for in是es6之前的遍历对象属性的方法，循环只遍历可枚举属性，遍历的是对象的属性名，一般都和hasOwnProperty配合使用，以枚举自身的属性而不包含继承的属性，当然es6之后一般都使用for of或者Object.keys()/Object.values()，**es6大法好**
+```text
+这里要注意下for in和hasOwnProperty，for in是es6之前的遍历对象属性的方法，循环只遍历可枚举属性，遍历的是对象的属性名，一般都和hasOwnProperty配合使用，以枚举自身的属性而不包含继承的属性，当然es6之后一般都使用for of或者Object.keys()/Object.values()，es6大法好
+```
 
-**总之，utils.forEach就做一件事情，遍历传入的obj参数的值，并通过传入的回调方法fn处理遍历的值，与es6的Array.forEach类似，而且同时还能处理object的属性，这个方法挺重要，你将会在整个axios库里一直见到它**
+**总之，utils.forEach就做一件事情，遍历传入的obj参数的值，并通过传入的回调方法fn处理遍历的值，与es6的Array.forEach类似，而且同时还能处理object的属性，这个方法挺重要，你将会在整个axios库里一直见到它。**
 
 然后回到InterceptorManager，我们继续看InterceptorManager中的forEach
 
@@ -461,54 +439,48 @@ toString就是Object原型上的toString方法，
 ```javascript
 
     // Provide aliases for supported request methods
-    utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {
-        /*eslint func-names:0*/
-        Axios.prototype[method] = function(url, config) {
-            return this.request(utils.merge(config || {}, {
-                method: method,
-                url: url
-            }));
-        };
-    });
+    utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {...});
+
 ```
 
-这段里的['delete', 'get', 'head', 'options']很清楚，就是一些http的[request method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)，从forEachMethodNoData来看，这些应该都是不带data的method，而这段代码是什么意思呢？那就顺便让我们来走一遍utils.forEach的流程吧
+这段里的['delete', 'get', 'head', 'options']很清楚，就是一些http的[request method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)，从处理方法forEachMethodNoData来看，这些应该都是不带data的method，而这段代码是什么意思呢？那就让我们顺便来走一遍utils.forEach的流程
 
 - 这里调用了utils.forEach，参数是['delete', 'get', 'head', 'options']和 function forEachMethodNoData(method)
 
-- 进入forEach函数体，对应的obj即['delete', 'get', 'head', 'options']，fn即forEachMethodNoData
+- 进入forEach循环，对应的obj即['delete', 'get', 'head', 'options']，fn即forEachMethodNoData
 
     1. 判断obj是否为空，这里obj非空，是一个数组
     2. 判断obj是否为object，这里obj不是对象
     3. 判断obj是否为数组，obj是数组，则进行数组遍历
 
-    ```javascript
+        ```javascript
         for (var i = 0, l = obj.length; i < l; i++) {
             fn.call(null, obj[i], i, obj);
         }
-    ```
+        ```
 
-    4. 遍历数组，数组第一个值为'delete'，调用fn即forEachMethodNoData，传入参数'delete', 0, ['delete', 'get', 'head', 'options']
-    5. 执行forEachMethodNoData
+    4. 遍历数组，数组第一个值为'delete'，调用fn即forEachMethodNoData，传入参数'delete'（当前项）, 0（index，位置）, ['delete', 'get', 'head', 'options']（数组本身）
+    5. 执行forEachMethodNoData，定义如下：
 
-    ```javascript
+        ```javascript
 
-            function forEachMethodNoData(method) {
-                /*eslint func-names:0*/
-                Axios.prototype[method] = function(url, config) {
-                    return this.request(utils.merge(config || {}, {
-                        method: method,
-                        url: url
-                    }));
-                };
-            });
-    ```
-    6. 因为回调方法只接收一个参数method，则method的值为'delete'
+        function forEachMethodNoData(method) {
+            /*eslint func-names:0*/
+            Axios.prototype[method] = function(url, config) {
+                return this.request(utils.merge(config || {}, {
+                    method: method,
+                    url: url
+                }));
+            };
+        });
+        ```
+
+    6. 因为方法forEachMethodNoData只接收一个参数method，则method的值为'delete'
     7. 执行语句Axios.prototype[method] = function(url, config){..}，即Axios.prototype['delete'] = function(url, config){...}
     8. 继续遍历，调用fn，传入参数'get', 1, ['delete', 'get', 'head', 'options']
     9. 如此反复直到遍历结束
 
-可见，这步就是将这些method声明成Axios原型上的方法，即可以直接通过Axios实例axios.get(), axios.delete()的方式发起请求
+可见，这步就是将这些method声明成Axios原型上的方法，即可以直接通过Axios实例axios.get(), axios.delete()的方式发起请求，循环结束后，Axios.prototype上则包含了'delete', 'get', 'head', 'options'这些方法
 
 ```javascript
     utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
@@ -533,14 +505,6 @@ GET
 
 The GET method requests a representation of the specified resource. Requests using GET should only retrieve data.
 
-HEAD
-
-The HEAD method asks for a response identical to that of a GET request, but without the response body.
-
-POST
-
-The POST method is used to submit an entity to the specified resource, often causing a change in state or side effects on the server.
-
 PUT
 
 The PUT method replaces all current representations of the target resource with the request payload.
@@ -557,24 +521,46 @@ OPTIONS
 
 The OPTIONS method is used to describe the communication options for the target resource.
 
-TRACE
-
-The TRACE method performs a message loop-back test along the path to the target resource.
-
-PATCH
-
-The PATCH method is used to apply partial modifications to a resource.
 ```
 
-如果面试时面试官问你这个，你就说一些基本的就行，比如get,post,put,delete,options这几个，然后注意下哪些是幂等(no side effect)，哪些非幂等(side effect)，比如get,put,delete,options都是幂等的，post是非幂等的，其实这些method里只有post和patch是非幂等的......额，如果都看到这里你还是不知道[幂等](https://developer.mozilla.org/zh-CN/docs/Glossary/%E5%B9%82%E7%AD%89)的意思并且没有上网查....你可以的，
+如果面试时面试官问你这个，你就说一些基本的就行，比如get,post,put,delete,options这几个，然后注意下哪些是幂等(idempotent)，哪些非幂等(no-idempotent side effects)，比如get,put,delete,options都是幂等的，post是非幂等的，其实这些method里只有post和patch是非幂等的......[幂等](https://developer.mozilla.org/zh-CN/docs/Glossary/%E5%B9%82%E7%AD%89)这个名词在RESTful中时常被提起，这里稍微说道说道
 
-- 幂等 请求之后不会改变服务器的值，请求被执行一次与连续执行多次的效果是一样的
-    > 比如get请求获取你的昵称，你的昵称并不会因为你get而改变，你get多次都不会改变你的昵称  
-    > 但是万一如果你get请求之后导致你的昵称被改了，那说明你请求的这个服务器错误地打破幂等性约束，你可以骂它一句垃圾，但是别被它听见了
+- 幂等： ~~请求之后不会改变服务器的值，~~ 同样的请求被执行一次与连续执行多次的效果是一样的，服务器的状态也是一样的
+  - 比如get请求获取你的昵称，你的昵称并不会因为你get而改变，你get多次都不会改变你的昵称  
+  - 一般来说，get请求应该是幂等的，但是也见过有很多使用get请求来传递参数并导致服务器的资源多次修改，这当然不能说是错的，但是至少是不RESTful的
 
-- 非幂等 请求之后会改变服务器的值，多次请求会导致值多次改变
-    > 比如post请求更新你的昵称，你post提交新的昵称后，你的昵称就会因为你的post而改变，你post多次，会多次改变昵称  
-    > 同样的，如果你post之后你的昵称没变，那说明你请求的这个服务器可能已经挂了....赶紧联系网站管理员吧
+- 非幂等： 同样的请求被执行一次与连续执行多次的效果是不同的，服务器的状态也是会变化的
+  - 比如post请求添加你的联系方式，你post提交新的联系方式后，你的联系方式就会新增，你post多次，会新增多次联系地址
+  - 同样的，也见过很多以幂等方式使用post方法的，比如为了隐藏掉get请求暴露的url参数，所有的请求都使用post，以传递token字段或一些自定义信息，这当然也不能说是错的或者不合理的，但是至少也是不RESTful的
+
+**值得注意的是，所谓的幂等性所指的究竟是什么？**
+
+**按MDN的说法，“幂等性只与后端服务器的实际状态有关”，这实在是有点语焉不详...**
+
+**我的理解很简单，既然RESTful定义了一切都是资源，那么幂等性指的就是该操作对资源的操作造成的结果是否一致的。**
+
+> 这样就能理解为什么post是非幂等而put却是幂等的，post更类似于新增(Create)资源的操作，多次post，则会新增多个资源，而put就更类似更新(Update)的操作，当修改的值(例如put带有的参数)是确定的，那多次修改对资源造成的结果是一致的，当然put也是可以新增资源的，当要修改的资源不存在，服务器应该新增该put的资源，之后再进行多次put，对该资源造成的结果是一致的
+
+> 同样，也能很好的理解为什么delete也是幂等操作，因为按照定义，delete操作只能删除(Delete)对应的资源，就像MDN上所说“开发者不应该使用DELETE方法实现具有删除最后条目功能的 RESTful API。”所以delete操作应该设计成只能删除对应的资源，比如delete("abc")，只能删除"abc"这个条目，不应该设计成deleteNext()，每执行一次就删除下一条条目
+
+从[HTTP协议](https://tools.ietf.org/html/rfc7231#section-4.2.2)对幂等的定义，就能更好的理解为什么要设计幂等方法，
+
+```text
+Idempotent methods are distinguished because the request can be repeated automatically if a communication failure occurs before the client is able to read the server's response.
+```
+
+幂等方法可以在链接发送故障时，客户端能够读取服务器资源前，自动重复请求，而不会造成任何副作用
+
+```text
+For example, if a
+client sends a PUT request and the underlying connection is closed
+before any response is received, then the client can establish a new
+connection and retry the idempotent request.  It knows that repeating
+the request will have the same intended effect, even if the original
+request succeeded, though the response might differ.
+```
+
+例如通过put方法更新服务器某个资源，即使服务器挂了/网线被人拔了/wifi被屏蔽了，再连接重新建立后，可以重试幂等请求，无论怎么请求，请求几次，只要是幂等的，就不会有副作用
 
 然后让我们回到Axios.js(又扯远了...)，通过两段forEach，Axios的原型上已经有了一堆方法了，然而这些method对应的方法，最终都会调用到this.request，另一个声明在Axios原型上的方法
 
@@ -719,21 +705,21 @@ The PATCH method is used to apply partial modifications to a resource.
     - 当config2存在其他的参数名时，也同样会进行赋值，赋值规则同上，优先使用config2的值
 
     我这边举个例子：
-    
-    ```javascript
-        config1: {
-            url: "aaa/aaa",
-            method: "get",
-            others1: {}
-        }
 
-        config2: {
-            url: "bbb/bbb",
-            method: "post",
-            data: {},
-            others2: { value: "others" },
-        }
+    ```javascript
+            config1: {
+                url: "aaa/aaa",
+                method: "get",
+                others1: {}
+            }
+            config2: {
+                url: "bbb/bbb",
+                method: "post",
+                data: {},
+                others2: { value: "others" },
+            }
     ```
+
     合并后：
 
     ```javascript
@@ -846,23 +832,25 @@ The PATCH method is used to apply partial modifications to a resource.
         接下来，处理相对路径的url，如果config.url是绝对路径，则直接使用，反之若存在baseURL且config.url不是绝对路径，则将两个url进行合并操作
 
         ```javascript
-        // Support baseURL config
-        if (config.baseURL && !isAbsoluteURL(config.url)) {
-            config.url = combineURLs(config.baseURL, config.url);
-        }
+                // Support baseURL config
+                if (config.baseURL && !isAbsoluteURL(config.url)) {
+                    config.url = combineURLs(config.baseURL, config.url);
+                }
         ```
+
         其中isAbsoluteURL是用来判断是否是绝对路径，如果是以```<scheme>//```或者```//```开头的，则是绝对路径，反之则是不是，判断是用了如下正则表达式
+
         ```javascript
-        /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url)
+            /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url)
         ```
 
         combineURLs的操作方式则是去掉baseURL的最后的```/```，去掉relativeURL的第一个```/```，然后用```/``` 将两个字符串合并起来，orz
 
         接着处理header
-        ```javascript
-        // Ensure headers exist
-        config.headers = config.headers || {};
-        ```
-        标准的js处理方式，如果没有定义header，则声明header为一个空对象
 
-        
+        ```javascript
+            // Ensure headers exist
+            config.headers = config.headers || {};
+        ```
+
+        标准的js处理方式，如果没有定义header，则声明header为一个空对象
