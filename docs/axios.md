@@ -622,7 +622,7 @@ request succeeded, though the response might differ.
 3. 如果config不是string，那么就尝试构建config对象，config = config || {}; 标准的js对象初始化语句
 4. 经过初始处理过的config，要再经过一次mergeConfig操作，WTF，先康康mergeConfig是什么操作
 
-    ##### /lib/core/mergeConfig.js
+    > /lib/core/mergeConfig.js
 
     ```javascript
 
@@ -696,6 +696,7 @@ request succeeded, though the response might differ.
                 return config;
             };
     ```
+
     我***[脏话]，太长，不看....
 
     好吧，我开玩笑的，这里总结下，调用mergeConfig，
@@ -741,9 +742,9 @@ request succeeded, though the response might differ.
 6. 接下来是重头戏了，处理中间件
     - 首先定义 chain数组, 默认有两个值, dispatchRequest和undefined....  
         undefined先不管，我们先看看dispatchRequest
-        
+
         dispatchRequest.js
-        
+
         ```javascript
 
             /**
@@ -829,7 +830,7 @@ request succeeded, though the response might differ.
 
         简单的说就是如果config带有cancelToken，就调用cancelToken的throwIfRequested方法取消发送过的请求
 
-        接下来，处理相对路径的url，如果config.url是绝对路径，则直接使用，反之若存在baseURL且config.url不是绝对路径，则将两个url进行合并操作
+    - 接下来，处理相对路径的url，如果config.url是绝对路径，则直接使用，反之若存在baseURL且config.url不是绝对路径，则将两个url进行合并操作
 
         ```javascript
                 // Support baseURL config
@@ -846,7 +847,7 @@ request succeeded, though the response might differ.
 
         combineURLs的操作方式则是去掉baseURL的最后的```/```，去掉relativeURL的第一个```/```，然后用```/``` 将两个字符串合并起来，orz
 
-        接着处理header
+    - 接着处理header
 
         ```javascript
             // Ensure headers exist
